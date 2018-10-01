@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">CaptureCastScreenAndroid</string>
+  <string name="permission_request_denied">Need permission</string>
+</resources>
