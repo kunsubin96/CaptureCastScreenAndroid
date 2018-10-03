@@ -4,6 +4,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.PixelFormat;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
@@ -19,6 +20,7 @@ import android.os.Message;
 import android.util.Base64;
 import android.util.Log;
 import android.view.WindowManager;
+import com.example.kunsubin.capturecastscreenandroid.config.Configs;
 import com.example.kunsubin.capturecastscreenandroid.socket.TcpSocketClient;
 import io.reactivex.Observable;
 import io.reactivex.Scheduler;
@@ -92,7 +94,7 @@ public class RecordService extends Service {
         super.onCreate();
         
         try {
-            mTcpSocketClient=new TcpSocketClient(InetAddress.getByName("192.168.1.9"),5900);
+            mTcpSocketClient=new TcpSocketClient(InetAddress.getByName(Configs.IP_SERVER), Configs.PORT_SERVER);
             mTcpSocketClient.start();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -199,12 +201,10 @@ public class RecordService extends Service {
                         Image.Plane[] planes = img.getPlanes();
                         
                         ByteBuffer buffer = planes[0].getBuffer();
-                        int pixelStride = planes[0].getPixelStride();
-                        int rowStride = planes[0].getRowStride();
-                        int rowPadding = rowStride - pixelStride * width;
+                      
                         img.close();
                         
-                        ImageInfo imageInfo = new ImageInfo(width, height, buffer, pixelStride, rowPadding);
+                        ImageInfo imageInfo = new ImageInfo(width, height, buffer);
                         
                         Observable.just(new FlagImageInfo(imageInfo, imgFlag++))
                                   .subscribeOn(scheduler)
@@ -225,10 +225,11 @@ public class RecordService extends Service {
             @Override
             public FlagBitmap apply(FlagImageInfo flagImageInfo) throws Exception {
                 ImageInfo imageInfo = flagImageInfo.imageInfo;
-                Bitmap bitmap = Bitmap.createBitmap(imageInfo.width + imageInfo.rowPadding / imageInfo.pixelStride, imageInfo.height,
+                Bitmap bitmap = Bitmap.createBitmap(imageInfo.width, imageInfo.height,
                           Bitmap.Config.ARGB_8888);
                 bitmap.copyPixelsFromBuffer(imageInfo.byteBuffer);
-                bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
+               // bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
+                bitmap=Bitmap.createScaledBitmap(bitmap, Configs.WIDTH_SCALE, Configs.HEIGHT_SCALE, false);
                 
                 return new FlagBitmap(bitmap, flagImageInfo.flag);
             }
@@ -241,17 +242,19 @@ public class RecordService extends Service {
             public void accept(FlagBitmap flagBitmap) throws Exception {
                 Bitmap bitmap = flagBitmap.bitmap;
                 ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 10, byteArrayOutputStream);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, Configs.QUALITY_SCREEN_IMAGE, byteArrayOutputStream);
                 
                 byte[] b = byteArrayOutputStream.toByteArray();
                 String base64Str = Base64.encodeToString(b, Base64.DEFAULT);
                 
                 if (flagBitmap.flag > postedImgFlag) {
                     postedImgFlag = flagBitmap.flag;
-                    Log.d(TAG, "Lenght: "+base64Str.length());
-                    Log.d(TAG,"Base64:" +base64Str);
+                    Log.d(TAG, "Length: "+base64Str.length());
+                    Log.d(TAG,"Size: "+b.length);
+                    //server split stringbase64
+                    base64Str+="  ";
                     mTcpSocketClient.send(base64Str.getBytes());
-                    //RxBus.getDefault().post(base64Str);
+                    Thread.sleep(100);
                 }
                 
                 try {
@@ -276,15 +279,11 @@ public class RecordService extends Service {
         private int width;
         private int height;
         private ByteBuffer byteBuffer;
-        private int pixelStride;
-        private int rowPadding;
         
-        public ImageInfo(int width, int height, ByteBuffer byteBuffer, int pixelStride, int rowPadding) {
+        public ImageInfo(int width, int height, ByteBuffer byteBuffer) {
             this.width = width;
             this.height = height;
             this.byteBuffer = byteBuffer;
-            this.pixelStride = pixelStride;
-            this.rowPadding = rowPadding;
         }
     }
     private class FlagImageInfo {

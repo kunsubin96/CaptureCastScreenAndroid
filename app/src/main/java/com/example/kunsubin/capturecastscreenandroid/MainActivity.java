@@ -26,7 +26,6 @@ public class MainActivity extends AppCompatActivity {
     private MediaProjection mediaProjection;
     private RecordService recordService;
     
-    private BroadcastReceiver broadcastReceiverNetworkState;
     
     private Button mButtonRecorder;
     @Override
@@ -40,7 +39,6 @@ public class MainActivity extends AppCompatActivity {
         mButtonRecorder=findViewById(R.id.btn_record);
     }
     private void initEvent() {
-        initBroadcastReceiverNetworkStateChanged();
         projectionManager = (MediaProjectionManager) this.getSystemService(MEDIA_PROJECTION_SERVICE);
         
         
@@ -52,9 +50,11 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 if (recordService.isRunning()) {
                     recordService.stopRecord();
+                    mButtonRecorder.setText(R.string.txt_start);
                 } else {
                     Intent captureIntent = projectionManager.createScreenCaptureIntent();
                     startActivityForResult(captureIntent, RECORD_REQUEST_CODE);
+                    mButtonRecorder.setText(R.string.txt_stop);
                 }
             }
         });
@@ -98,32 +98,7 @@ public class MainActivity extends AppCompatActivity {
     public void onDestroy() {
         recordService.removeListener();
         unbindService(recorderConnection);
-        if (broadcastReceiverNetworkState != null) {
-            unregisterReceiver(broadcastReceiverNetworkState);
-        }
         super.onDestroy();
-    }
-    
-    private void initBroadcastReceiverNetworkStateChanged() {
-        final IntentFilter filters = new IntentFilter();
-        filters.addAction("android.net.wifi.WIFI_STATE_CHANGED");
-        filters.addAction("android.net.wifi.STATE_CHANGE");
-        filters.addAction("android.net.wifi.WIFI_AP_STATE_CHANGED");
-        broadcastReceiverNetworkState = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                Log.d(TAG, "onReceive: " + intent.getAction());
-                int state = intent.getIntExtra("wifi_state", -66);
-                Log.i(TAG, "state= " + state);
-                if ("android.net.wifi.WIFI_AP_STATE_CHANGED".equals(intent.getAction())
-                    && state == 13) {
-                   // vm.mode.set(1);
-                } else {
-                    //vm.mode.set(0);
-                }
-            }
-        };
-        registerReceiver(broadcastReceiverNetworkState, filters);
     }
     
 }
