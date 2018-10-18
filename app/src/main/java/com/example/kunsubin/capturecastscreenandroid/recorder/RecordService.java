@@ -93,13 +93,6 @@ public class RecordService extends Service {
     public void onCreate() {
         super.onCreate();
         
-        try {
-            mTcpSocketClient=new TcpSocketClient(InetAddress.getByName(Configs.IP_SERVER), Configs.PORT_SERVER);
-            mTcpSocketClient.start();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
-        }
-        
         HandlerThread serviceThread = new HandlerThread("service_thread", android.os.Process.THREAD_PRIORITY_BACKGROUND);
         serviceThread.start();
         running = false;
@@ -146,6 +139,14 @@ public class RecordService extends Service {
     }
     
     public boolean startRecord() {
+    
+        try {
+            mTcpSocketClient=new TcpSocketClient(InetAddress.getByName(Configs.IP_SERVER), Configs.PORT_SERVER);
+            mTcpSocketClient.start();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
+        
         if (mediaProjection == null || running) {
             return false;
         }
@@ -164,6 +165,7 @@ public class RecordService extends Service {
             return false;
         }
         running = false;
+        
         if (virtualDisplay != null) {
             virtualDisplay.release();
             virtualDisplay = null;
@@ -228,7 +230,7 @@ public class RecordService extends Service {
                 Bitmap bitmap = Bitmap.createBitmap(imageInfo.width, imageInfo.height,
                           Bitmap.Config.ARGB_8888);
                 bitmap.copyPixelsFromBuffer(imageInfo.byteBuffer);
-               // bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
+                bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
                 bitmap=Bitmap.createScaledBitmap(bitmap, Configs.WIDTH_SCALE, Configs.HEIGHT_SCALE, false);
                 
                 return new FlagBitmap(bitmap, flagImageInfo.flag);
@@ -245,16 +247,18 @@ public class RecordService extends Service {
                 bitmap.compress(Bitmap.CompressFormat.JPEG, Configs.QUALITY_SCREEN_IMAGE, byteArrayOutputStream);
                 
                 byte[] b = byteArrayOutputStream.toByteArray();
-                String base64Str = Base64.encodeToString(b, Base64.DEFAULT);
                 
                 if (flagBitmap.flag > postedImgFlag) {
                     postedImgFlag = flagBitmap.flag;
-                    Log.d(TAG, "Length: "+base64Str.length());
-                    Log.d(TAG,"Size: "+b.length);
-                    //server split stringbase64
-                    base64Str+="  ";
-                    mTcpSocketClient.send(base64Str.getBytes());
-                    Thread.sleep(100);
+                    Log.d(TAG,"Size: "+getFormatSize(b.length));
+                    byte[] sizeBytes=getFormatSize(b.length).getBytes();
+    
+                    byte[] c = new byte[sizeBytes.length + b.length];
+                    System.arraycopy(sizeBytes, 0, c, 0, sizeBytes.length);
+                    System.arraycopy(b, 0, c, sizeBytes.length, b.length);
+    
+                    mTcpSocketClient.send(c);
+                    
                 }
                 
                 try {
@@ -268,7 +272,25 @@ public class RecordService extends Service {
             }
         };
     }
-    
+    public String getFormatSize(int length){
+        String lg=String.valueOf(length);
+        switch (lg.length()){
+            case 6:
+                return lg;
+            case 5:
+                return lg+" ";
+            case 4:
+                return lg+"  ";
+            case 3:
+                return lg+"   ";
+            case 2:
+                return lg+"    ";
+            case 1:
+                return lg+"     ";
+                default:
+                    return "0";
+        }
+    }
     public class RecordBinder extends Binder {
         public RecordService getRecordService() {
             return RecordService.this;

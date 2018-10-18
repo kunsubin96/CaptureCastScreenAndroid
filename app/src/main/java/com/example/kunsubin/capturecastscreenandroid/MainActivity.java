@@ -16,8 +16,12 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+import com.example.kunsubin.capturecastscreenandroid.config.Configs;
 import com.example.kunsubin.capturecastscreenandroid.recorder.RecordService;
 import com.example.kunsubin.capturecastscreenandroid.recorder.RecordServiceListener;
+import com.example.kunsubin.capturecastscreenandroid.utils.Utils;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -28,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     
     
     private Button mButtonRecorder;
+    private EditText mEditTextIpServer;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -37,6 +42,7 @@ public class MainActivity extends AppCompatActivity {
     }
     private void initView(){
         mButtonRecorder=findViewById(R.id.btn_record);
+        mEditTextIpServer=findViewById(R.id.editIpServer);
     }
     private void initEvent() {
         projectionManager = (MediaProjectionManager) this.getSystemService(MEDIA_PROJECTION_SERVICE);
@@ -48,6 +54,16 @@ public class MainActivity extends AppCompatActivity {
         mButtonRecorder.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                String ip=mEditTextIpServer.getText().toString().trim();
+                if(Utils.isEmptyText(ip)){
+                    Toast.makeText(getApplicationContext(),"Enter IP...",Toast.LENGTH_LONG).show();
+                    return;
+                }
+                if(!Utils.validateIP(ip)){
+                    Toast.makeText(getApplicationContext(),"IP is not validate...",Toast.LENGTH_LONG).show();
+                    return;
+                }
+                Configs.IP_SERVER=ip;
                 if (recordService.isRunning()) {
                     recordService.stopRecord();
                     mButtonRecorder.setText(R.string.txt_start);

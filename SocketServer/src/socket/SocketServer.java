@@ -1,54 +1,55 @@
 package socket;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.lang.reflect.Array;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Base64;
-import java.util.UUID;
 
 public class SocketServer {
-	private static final String UPLOAD_FOLDER = "D:\\temp\\";
-
-	public static void main(String[] args) {
+	private static final String LOCATION = "D:\\temp\\";
+	public static void main(String[] args) throws InterruptedException {
 		System.out.println("Listening on port 5905, CRTL-C to stop");
-		int i = 0;
+		int count = 0;
 		try {
 			@SuppressWarnings("resource")
 			ServerSocket serverSocket = new ServerSocket(5905);
 			Socket socket = serverSocket.accept();
 			System.out.println("got a connection");
-			BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			while (true) {
+				InputStream inputStream = socket.getInputStream();
 
-			String line;
-			StringBuilder builder = new StringBuilder("");
-			while ((line = reader.readLine()) != null) {
-				// System.out.println(line);
-				int index = line.indexOf("  ");
-				if (index >= 0) {
-					String temp = line.substring(0, index);
-					builder.append(temp);
-					byte[] decodedBytes = Base64.getDecoder().decode(builder.toString().trim());
-				    writeBytesToFileNio(decodedBytes, UPLOAD_FOLDER+ i +".jpg");
-					i++;
-					builder.setLength(0);
-					builder.append(line.substring(index));
-				} else {
-					builder.append(line);
-				}
-
+				int nRead;
+				
+				byte[] headerSize = new byte[6];
+				DataInputStream dataISHeader = new DataInputStream(inputStream);
+				dataISHeader.readFully(headerSize);
+				String header=new String(headerSize);
+				
+				byte[] data=new byte[Integer.parseInt(header.trim())];
+				DataInputStream dataIS = new DataInputStream(inputStream);
+				dataIS.readFully(data);
+				
+				//saveFile
+				writeBytesToFileNio(data,LOCATION+count+".jpg");
+				count++;
+				Thread.sleep(500);
 			}
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
 	}
-
 	private static void writeBytesToFileNio(byte[] bFile, String fileDest) {
 		try {
 			Path path = Paths.get(fileDest);
@@ -59,10 +60,5 @@ public class SocketServer {
 			e.printStackTrace();
 		}
 
-	}
-
-	private static String generateUUID() {
-		String uuid = UUID.randomUUID().toString().replace("-", "");
-		return uuid;
 	}
 }
